@@ -13,4 +13,4 @@ footer = snow/footer.html
 year = py/year.py
 
 [Snowflakes *.vfreezer]
-path = ['vars/author.vfreezer', 'vars/contacts.vfreezer']
+path = ['var/author.vfreezer', 'var/contacts.vfreezer']
