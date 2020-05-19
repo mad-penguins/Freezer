@@ -1,0 +1,16 @@
+[Project]
+Name = MyFirstFreezerProject
+
+[Source]
+dir = src
+path = []
+
+[Snowflakes *.html]
+header = snow/header.html
+footer = snow/footer.html
+
+[Snowflakes *.py]
+year = py/year.py
+
+[Snowflakes *.vfreezer]
+path = ['vars/author.vfreezer', 'vars/contacts.vfreezer']
