@@ -12,7 +12,7 @@ footer = snow/footer.html
 [Snowflakes *.py]
 year = py/year.py
 
-[Snowflakes *.vfreezer]
+[Snowflakes *.*]
 
 [Snowflakes *.cfreezer]
 path = ['conf/settings.cfreezer', 'conf/contacts.cfreezer']

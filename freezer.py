@@ -28,6 +28,7 @@ class Freezer(object):
             nameConfig = self.args[1]
 
         config = configparser.ConfigParser()
+        config.optionxform = lambda option: option
         config.read(nameConfig)
 
         if not config.has_section(section):
@@ -37,33 +38,37 @@ class Freezer(object):
         with open(nameConfig, "w") as config_file:
             config.write(config_file)
 
+    def readConfig(self, section, option, nameConfig=None):
+        if nameConfig is None:
+            nameConfig = self.args[1]
+
+        config = configparser.ConfigParser()
+        config.optionxform = lambda option: option
+        config.read(nameConfig)
+
+        if not config.has_option(section, option):
+            return None
+        return config[section][option]
+
+
     def startNewProject(self, nameNewProject = None):
         if nameNewProject is None:
             nameNewProject = self.args[2]
 
-        config = configparser.ConfigParser()
+        self.writeConfig("Project", "Name", nameNewProject, nameNewProject+'.freezer')
+        self.writeConfig("Source", "DIR", "src", nameNewProject+'.freezer')
+        self.writeConfig("Snowflakes *.html", "DIR", "snow", nameNewProject+'.freezer')
+        self.writeConfig("Snowflakes *.py", "DIR", "py", nameNewProject+'.freezer')
+        self.writeConfig("Snowflakes *.*", "DIR", "var", nameNewProject+'.freezer')
+        self.writeConfig("Snowflakes *.cfreezer", "DIR", "conf", nameNewProject+'.freezer')
+        self.writeConfig("Snowflakes *.cfreezer", "path", str(list()), nameNewProject+'.freezer')
 
-        config.add_section("Project")
-        config.set("Project", "Name", nameNewProject)
-
-        config.add_section("Source")
-        config.set("Source", "dir", "src")
-
-        config.add_section("Snowflakes *.html")
-        config.add_section("Snowflakes *.py")
-        config.add_section("Snowflakes *.vfreezer")
-        config.add_section("Snowflakes *.cfreezer")
-        config['Snowflakes *.cfreezer']['path'] = str(list())
-
-        with open(nameNewProject + '.freezer', "w") as config_file:
-            config.write(config_file)
-
-        mkdir("conf")
-        mkdir("py")
-        mkdir("snow")
         mkdir("src")
-        mkdir("static")
+        mkdir("snow")
+        mkdir("py")
         mkdir("var")
+        mkdir("conf")
+        mkdir("static")
 
     def getFileAddressList(self, rootAddress = None):
         if rootAddress is None:
@@ -76,29 +81,24 @@ class Freezer(object):
                 fileAddressList.append(path.join(root, name))
         return fileAddressList
 
-    def updateVar(self):
-        fileList = self.getFileAddressList('var')
+    def updateSnowflakes(self, typeOfShowflake):
+        dirPath = self.readConfig(typeOfShowflake, 'DIR')
+
+        if dirPath == None:
+            return 'Error'
+        fileList = self.getFileAddressList(dirPath)
 
         for x in fileList:
             full_name = path.basename(x)
-            index = full_name.find('.')
-
-            if index != -1:
-                full_name = full_name[:index]
-            self.writeConfig("Snowflakes *.vfreezer", full_name, x)
-
-        # config = configparser.ConfigParser()
-        # config.read(self.args[1])
-        # a = config.items('Snowflakes *.vfreezer')
-        # print(a, type(a))
-        # print(a[0][0], a[0][1], type(a[0][0]))
+            name = path.splitext(full_name)[0]
+            self.writeConfig(typeOfShowflake, name, full_name)
 
     def updateConf(self):
         fileList = self.getFileAddressList('conf')
         self.writeConfig("Snowflakes *.cfreezer", "path", fileList)
 
     def testVar(self):
-        fileListFromConfig = self.getListFromConfig("Snowflakes *.vfreezer", "path")
+        fileListFromConfig = self.getListFromConfig("Snowflakes *.*", "path")
         answer = ''
 
         if len(fileListFromConfig) > 0:
@@ -114,8 +114,12 @@ class Freezer(object):
         if whatToUpdate is None:
             whatToUpdate = self.args[3]
 
-        if whatToUpdate == 'var':
-            self.updateVar()
+        if whatToUpdate == 'snow':
+            self.updateSnowflakes('Snowflakes *.html')
+        elif whatToUpdate == 'py':
+            self.updateSnowflakes('Snowflakes *.py')
+        elif whatToUpdate == 'var':
+            self.updateSnowflakes('Snowflakes *.*')
         elif whatToUpdate == 'conf':
             self.updateConf()
 
