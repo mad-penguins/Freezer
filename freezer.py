@@ -1,3 +1,5 @@
+from os import getcwd
+from sys import argv
 import configparser
 from os import mkdir, walk, path
 
@@ -50,11 +52,13 @@ class Freezer(object):
         config.add_section("Snowflakes *.html")
         config.add_section("Snowflakes *.py")
         config.add_section("Snowflakes *.vfreezer")
-        config['Snowflakes *.vfreezer']['path'] = str(list())
+        config.add_section("Snowflakes *.cfreezer")
+        config['Snowflakes *.cfreezer']['path'] = str(list())
 
         with open(nameNewProject + '.freezer', "w") as config_file:
             config.write(config_file)
 
+        mkdir("conf")
         mkdir("py")
         mkdir("snow")
         mkdir("src")
@@ -74,17 +78,27 @@ class Freezer(object):
 
     def updateVar(self):
         fileList = self.getFileAddressList('var')
-        self.writeConfig("Snowflakes *.vfreezer", "path", fileList)
-        #fileListFromConfig = self.getListFromConfig("Snowflakes *.vfreezer", "path")
-        #print('fileList: ', fileList, len(fileList))
-        #print('fileListFromConfig: ', fileListFromConfig, len(fileListFromConfig))
-        #print(path.isfile(fileListFromConfig[0]))
-        # with open(fileListFromConfig[0], "r") as c:
-        #     print(c.read())
+
+        for x in fileList:
+            full_name = path.basename(x)
+            index = full_name.find('.')
+
+            if index != -1:
+                full_name = full_name[:index]
+            self.writeConfig("Snowflakes *.vfreezer", full_name, x)
+
+        # config = configparser.ConfigParser()
+        # config.read(self.args[1])
+        # a = config.items('Snowflakes *.vfreezer')
+        # print(a, type(a))
+        # print(a[0][0], a[0][1], type(a[0][0]))
+
+    def updateConf(self):
+        fileList = self.getFileAddressList('conf')
+        self.writeConfig("Snowflakes *.cfreezer", "path", fileList)
 
     def testVar(self):
         fileListFromConfig = self.getListFromConfig("Snowflakes *.vfreezer", "path")
-        
         answer = ''
 
         if len(fileListFromConfig) > 0:
@@ -102,6 +116,8 @@ class Freezer(object):
 
         if whatToUpdate == 'var':
             self.updateVar()
+        elif whatToUpdate == 'conf':
+            self.updateConf()
 
     def test(self, whatToTest = None):
         if whatToTest is None:
@@ -114,7 +130,16 @@ class Freezer(object):
         return answer
         
         
-            
+def main():
+    f = Freezer(argv, getcwd())
 
+    if argv[1] == 'start':
+        f.startNewProject()
+    else:
+        if argv[2] == 'update':
+            f.update()
+        elif argv[2] == 'test':
+            print(f.test())
 
-        
+if __name__ == "__main__":
+    main() 
