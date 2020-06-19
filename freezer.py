@@ -1,7 +1,12 @@
 from os import getcwd
 from sys import argv
 import configparser
+import os
 from os import mkdir, walk, path
+import re
+import importlib.util
+import shutil
+from time import sleep
 
 class Freezer(object):
     """docstring for Freezer"""
@@ -22,6 +27,22 @@ class Freezer(object):
         if (len(a) == 1) and (a[0] == ''):
             a = list()
         return a
+
+    def configHasSection(self, section):
+        config = configparser.ConfigParser()
+        config.read(self.args[1])
+
+        if config.has_section(section):
+            return True
+        return False
+
+    def configHasOption(self, section, option):
+        config = configparser.ConfigParser()
+        config.read(self.args[1])
+
+        if config.has_option(section, option):
+            return True
+        return False
 
     def writeConfig(self, section, option, value, nameConfig=None):
         if nameConfig is None:
@@ -56,7 +77,9 @@ class Freezer(object):
             nameNewProject = self.args[2]
 
         self.writeConfig("Project", "Name", nameNewProject, nameNewProject+'.freezer')
+        self.writeConfig("Build", "DIR", "build", nameNewProject+'.freezer')
         self.writeConfig("Source", "DIR", "src", nameNewProject+'.freezer')
+        self.writeConfig("Static", "DIR", "static", nameNewProject+'.freezer')
         self.writeConfig("Snowflakes *.html", "DIR", "snow", nameNewProject+'.freezer')
         self.writeConfig("Snowflakes *.py", "DIR", "py", nameNewProject+'.freezer')
         self.writeConfig("Snowflakes *.*", "DIR", "var", nameNewProject+'.freezer')
@@ -122,6 +145,11 @@ class Freezer(object):
             self.updateSnowflakes('Snowflakes *.*')
         elif whatToUpdate == 'conf':
             self.updateConf()
+        elif whatToUpdate == 'all':
+            self.updateSnowflakes('Snowflakes *.html')
+            self.updateSnowflakes('Snowflakes *.py')
+            self.updateSnowflakes('Snowflakes *.*')
+            self.updateConf()
 
     def test(self, whatToTest = None):
         if whatToTest is None:
@@ -132,6 +160,109 @@ class Freezer(object):
         if whatToTest == 'var':
             answer = self.testVar()
         return answer
+
+    def module_from_file(self, module_name, file_path):
+        spec = importlib.util.spec_from_file_location(module_name, file_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def searchSnowflake(self, match, numberOfMargins=0):
+        out = ''
+        varName = match[1:match.find('@')] # <body.test@py@> -> body.test
+        varNote = None
+
+        if match.find('@') == match.rfind('@'):
+            varNote = False
+        else:
+            varNote = match[match.find('@')+1:match.rfind('@')] # <body.test@py@> -> py
+
+        a = 'varName = '+varName+'@'
+        if varNote:
+            a += str(varNote)
+        print(a)
+        
+        if varNote == 'py':
+            if self.configHasOption('Snowflakes *.py', varName):
+                path = self.readConfig('Snowflakes *.py', 'DIR')+'/'+self.readConfig('Snowflakes *.py', varName)
+                foo = self.module_from_file(varName, path)
+                out += str(foo.freezer())
+        elif varNote == 'var' or varNote == 'txt':
+            if self.configHasOption('Snowflakes *.*', varName):
+                path = self.readConfig('Snowflakes *.*', 'DIR')+'/'+self.readConfig('Snowflakes *.*', varName)
+                with open(path, "r") as file:
+                    s = file.readlines()
+                for x in s:
+                    out += ' '*numberOfMargins
+                    out += x
+        else:
+            if self.configHasOption('Snowflakes *.html', varName):
+                path = self.readConfig('Snowflakes *.html', 'DIR')+'/'+self.readConfig('Snowflakes *.html', varName)
+                with open(path, "r") as file:
+                    s = file.readlines()
+                out += self.buildStrings(s, numberOfMargins)
+        return out
+
+    def buildString(self, string, numberOfMargins=0):
+        x = string
+        s_out = ""
+
+        t = re.search(r'<[a-zA-Z0-9\.\@]*@>', x)
+
+        s_out += ' '*numberOfMargins
+
+        if t:
+            start_space = 0
+            space =  False
+            end_space = 0
+            for x1 in range(t.start()):
+                if x[x1] == ' ':
+                    start_space += 1
+
+            if (start_space == t.start() and x[t.end()] == '\n') or (start_space == t.start()):
+                var = str( self.searchSnowflake(t.group(), t.start()) )
+            else:
+                var = str( self.searchSnowflake(t.group()) )
+                s_out += x[:t.start()]
+            s_out += var
+            s_out += x[t.end():]
+
+            s_out = self.buildString(s_out)
+        else:
+            s_out = s_out + x
+
+        return s_out
+
+    def buildStrings(self, strings, numberOfMargins=0):
+        s_out = ''
+
+        for x in strings:
+            s_out += self.buildString(x, numberOfMargins)
+        return s_out
+
+    def build(self):
+        files = self.getFileAddressList('src')
+
+        pathToStatic = self.readConfig('Static', 'DIR')
+        pathToBuild = self.readConfig('Build', 'DIR')
+
+        if path.isdir(pathToBuild):
+            shutil.rmtree(pathToBuild)
+            shutil.copytree(pathToStatic, pathToBuild+'/')
+        else:
+            shutil.copytree(pathToStatic, pathToBuild)
+
+        for x in files:
+            with open(x, "r") as file:
+                s = file.readlines()
+            out = self.buildStrings(s)
+            p = pathToBuild+x[3:-len(path.basename(x))-1]
+            p_t = pathToBuild+x[3:]
+
+            if not path.isdir(p):
+                mkdir(p)
+            with open(p_t, "w") as file:
+                file.write(out)
         
         
 def main():
@@ -141,9 +272,14 @@ def main():
         f.startNewProject()
     else:
         if argv[2] == 'update':
-            f.update()
+            if len(argv) == 3:
+                f.update("all")
+            else:
+                f.update()
         elif argv[2] == 'test':
             print(f.test())
+        elif argv[2] == 'build':
+            f.build()
 
 if __name__ == "__main__":
     main() 
