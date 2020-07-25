@@ -1,6 +1,11 @@
 # Freezer
 **Freezer** is a lightweight HTML template engine. Now you don't need to manually create many similar html pages. Freezer will do it for you. You only need to specify the content of *snowflakes* and their location in the project.
 
+* [Getting started](#getting-started)
+    * [Adding Freezer as submodule to your repository (recommended)](#adding-freezer-as-submodule-to-your-repository-recommended)
+    * [Adding Freezer as python script to your project](#adding-freezer-as-python-script-to-your-project)
+* [Create your first html pages](#create-your-first-html-pages)
+
 ## Getting started
 How to use this template engine in your site project? Quite easy. Now let's look at the currently implemented Freezer connectivity options:
 
